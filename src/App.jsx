@@ -1,4 +1,4 @@
-import { useState, useEffect, use } from "react"
+import { useState, useEffect } from "react"
 
 const FORMS = [
   { id: "261134527667966", key: "b119f8e8fd7fe6fbdb3aa032cef23299", label: "Checkins" },
@@ -12,56 +12,56 @@ function parseAnswers(answers) {
   const result = {}
   Object.values(answers).forEach(field => {
     if (field.type === "control_head" || field.type === "control_button") return
-    if (field.answer) {
-      result[field.name] = field.answer
-    }
+    if (field.answer) result[field.name] = field.answer
   })
   return result
 }
 
 export default function App() {
+
   const [allSubmissions, setAllSubmissions] = useState([])
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedItem, setSelectedItem] = useState(null)
+  const [activeForm, setActiveForm] = useState("all")
 
   useEffect(() => {
     const fetches = FORMS.map(form =>
       fetch(`https://api.jotform.com/form/${form.id}/submissions?apiKey=${form.key}&limit=100`)
-        .then(res => res.json())
-        .then(data => {
-          return data.content.map(submission => ({
-            ...submission,
-            formLabel: form.label,
-            parsed: parseAnswers(submission.answers)
-          }))
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to fetch")
+          return res.json()
         })
+        .then(data => data.content.map(submission => ({
+          ...submission,
+          formLabel: form.label,
+          parsed: parseAnswers(submission.answers)
+        })))
     )
 
     Promise.all(fetches)
       .then(results => {
-        // Combine all results into a single array
         setAllSubmissions(results.flat())
         setIsLoading(false)
       })
-      .catch(err => {
-        setError("Failed to load submissions. Please try again later.")
+      .catch(() => {
+        setError("Failed to load data. Please try again.")
         setIsLoading(false)
       })
   }, [])
 
   const filtered = allSubmissions.filter(item => {
     const allText = Object.values(item.parsed).join(" ").toLowerCase()
-    return allText.includes(search.toLowerCase())
+    const matchesSearch = allText.includes(search.toLowerCase())
+    const matchesForm = activeForm === "all" || item.formLabel === activeForm
+    return matchesSearch && matchesForm
   })
 
-
   return (
-    // NEW - two column layout, list on left detail on right
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", padding: "24px", fontFamily: "sans-serif" }}>
 
-      {/* LEFT - list */}
+      {/* LEFT */}
       <div>
         <h1 style={{ margin: "0 0 16px" }}>Find Podo</h1>
 
@@ -77,6 +77,28 @@ export default function App() {
           }}
         />
 
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" }}>
+          {["all", ...FORMS.map(f => f.label)].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveForm(tab)}
+              style={{
+                padding: "5px 12px", borderRadius: "99px", fontSize: "12px",
+                border: "1px solid #ddd", cursor: "pointer",
+                background: activeForm === tab ? "#4f6ef7" : "white",
+                color: activeForm === tab ? "white" : "#666",
+                fontWeight: activeForm === tab ? 600 : 400,
+              }}
+            >
+              {tab === "all" ? "All" : tab}
+            </button>
+          ))}
+        </div>
+
+        <p style={{ color: "#999", fontSize: "13px", marginBottom: "12px" }}>
+          {filtered.length} results
+        </p>
+
         {isLoading && <p style={{ color: "#aaa" }}>Loading all reports...</p>}
         {error && <p style={{ color: "red" }}>{error}</p>}
         {!isLoading && !error && filtered.length === 0 && (
@@ -86,7 +108,6 @@ export default function App() {
         {!isLoading && !error && filtered.map(item => (
           <div
             key={item.id}
-            // NEW - clicking sets this item as selected
             onClick={() => setSelectedItem(item)}
             style={{
               border: selectedItem?.id === item.id ? "2px solid #4f6ef7" : "1px solid #ddd",
@@ -110,7 +131,6 @@ export default function App() {
 
       {/* RIGHT - detail panel */}
       <div>
-        {/* No item selected yet */}
         {!selectedItem && (
           <div style={{ textAlign: "center", padding: "60px 0", color: "#aaa" }}>
             <p style={{ fontSize: "32px" }}>🔍</p>
@@ -118,11 +138,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Show selected item details */}
         {selectedItem && (
           <div style={{ background: "white", border: "1px solid #ddd", borderRadius: "12px", overflow: "hidden" }}>
-
-            {/* Header */}
             <div style={{ background: "#1a1a2e", padding: "20px", color: "white" }}>
               <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", margin: "0 0 8px" }}>
                 {selectedItem.formLabel}
@@ -131,14 +148,11 @@ export default function App() {
                 {selectedItem.parsed.fullname || selectedItem.parsed.name || "Unknown"}
               </h2>
             </div>
-
-            {/* All fields */}
             <div style={{ padding: "20px" }}>
               {Object.entries(selectedItem.parsed).map(([key, value]) => (
                 <div key={key} style={{
                   display: "flex", justifyContent: "space-between",
-                  padding: "10px 0", borderBottom: "1px solid #f3f4f6",
-                  fontSize: "14px"
+                  padding: "10px 0", borderBottom: "1px solid #f3f4f6", fontSize: "14px"
                 }}>
                   <span style={{ color: "#6b7280", textTransform: "capitalize" }}>{key}</span>
                   <span style={{ fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>{value}</span>
