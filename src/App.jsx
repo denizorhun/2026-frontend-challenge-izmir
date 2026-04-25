@@ -22,6 +22,9 @@ function parseAnswers(answers) {
 export default function App() {
   const [allSubmissions, setAllSubmissions] = useState([])
   const [search, setSearch] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [selectedItem, setSelectedItem] = useState(null)
 
   useEffect(() => {
     const fetches = FORMS.map(form =>
@@ -40,6 +43,11 @@ export default function App() {
       .then(results => {
         // Combine all results into a single array
         setAllSubmissions(results.flat())
+        setIsLoading(false)
+      })
+      .catch(err => {
+        setError("Failed to load submissions. Please try again later.")
+        setIsLoading(false)
       })
   }, [])
 
@@ -50,39 +58,97 @@ export default function App() {
 
 
   return (
-    <div style={{ padding: "24px", fontFamily: "sans-serif" }}>
-      <h1>Find Podo</h1>
+    // NEW - two column layout, list on left detail on right
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", padding: "24px", fontFamily: "sans-serif" }}>
 
-      <input
-        type="text"
-        placeholder="Search by name, location, or any keyword..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        style={{
-          padding: "10px 12px", width: "100%", maxWidth: "400px",
-          marginBottom: "20px", borderRadius: "6px", border: "1px solid #ccc"
-        }}
-      />
-      <p style={{ color: "#666", margin: "0 0 12px" }}> Showing {filtered.length} of {allSubmissions.length} records</p>
+      {/* LEFT - list */}
+      <div>
+        <h1 style={{ margin: "0 0 16px" }}>Find Podo</h1>
 
-      <p style={{ color: "#666" }}>Total records: {allSubmissions.length}</p>
+        <input
+          type="text"
+          placeholder="Search by name, location, note..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{
+            width: "100%", padding: "10px 14px", borderRadius: "8px",
+            border: "1px solid #ddd", fontSize: "14px",
+            marginBottom: "12px", boxSizing: "border-box"
+          }}
+        />
 
-      {filtered.map(item => (
-        <div key={item.id} style={{
-          border: "1px solid #ddd", borderRadius: "8px",
-          padding: "12px", marginBottom: "8px",
-        }}>
-          <p style={{ fontWeight: "bold", margin: "0 0 4px" }}>
-            {item.parsed.fullname || item.parsed.name || "Unknown"}
-          </p>
-          <p style={{ color: "#666", fontSize: "13px", margin: "0 0 2px" }}>
-            📍 {item.parsed.location || "No location"}
-          </p>
-          <p style={{ color: "#999", fontSize: "12px", margin: 0 }}>
-            {item.formLabel} · {item.parsed.timestamp || item.created_at}
-          </p>
-        </div>
-      ))}
+        {isLoading && <p style={{ color: "#aaa" }}>Loading all reports...</p>}
+        {error && <p style={{ color: "red" }}>{error}</p>}
+        {!isLoading && !error && filtered.length === 0 && (
+          <p style={{ color: "#aaa" }}>No results found.</p>
+        )}
+
+        {!isLoading && !error && filtered.map(item => (
+          <div
+            key={item.id}
+            // NEW - clicking sets this item as selected
+            onClick={() => setSelectedItem(item)}
+            style={{
+              border: selectedItem?.id === item.id ? "2px solid #4f6ef7" : "1px solid #ddd",
+              background: selectedItem?.id === item.id ? "#eef4ff" : "white",
+              borderRadius: "8px", padding: "12px",
+              marginBottom: "8px", cursor: "pointer",
+            }}
+          >
+            <p style={{ fontWeight: "bold", margin: "0 0 4px" }}>
+              {item.parsed.fullname || item.parsed.name || "Unknown"}
+            </p>
+            <p style={{ color: "#666", fontSize: "13px", margin: "0 0 2px" }}>
+              {item.parsed.location || "No location"}
+            </p>
+            <p style={{ color: "#999", fontSize: "12px", margin: 0 }}>
+              {item.formLabel} · {item.parsed.timestamp || item.created_at}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* RIGHT - detail panel */}
+      <div>
+        {/* No item selected yet */}
+        {!selectedItem && (
+          <div style={{ textAlign: "center", padding: "60px 0", color: "#aaa" }}>
+            <p style={{ fontSize: "32px" }}>🔍</p>
+            <p>Select a record to investigate</p>
+          </div>
+        )}
+
+        {/* Show selected item details */}
+        {selectedItem && (
+          <div style={{ background: "white", border: "1px solid #ddd", borderRadius: "12px", overflow: "hidden" }}>
+
+            {/* Header */}
+            <div style={{ background: "#1a1a2e", padding: "20px", color: "white" }}>
+              <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", margin: "0 0 8px" }}>
+                {selectedItem.formLabel}
+              </p>
+              <h2 style={{ margin: 0, fontSize: "20px" }}>
+                {selectedItem.parsed.fullname || selectedItem.parsed.name || "Unknown"}
+              </h2>
+            </div>
+
+            {/* All fields */}
+            <div style={{ padding: "20px" }}>
+              {Object.entries(selectedItem.parsed).map(([key, value]) => (
+                <div key={key} style={{
+                  display: "flex", justifyContent: "space-between",
+                  padding: "10px 0", borderBottom: "1px solid #f3f4f6",
+                  fontSize: "14px"
+                }}>
+                  <span style={{ color: "#6b7280", textTransform: "capitalize" }}>{key}</span>
+                  <span style={{ fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
     </div>
   )
 }
