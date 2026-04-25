@@ -21,6 +21,7 @@ function parseAnswers(answers) {
 
 export default function App() {
   const [allSubmissions, setAllSubmissions] = useState([])
+  const [search, setSearch] = useState("")
 
   useEffect(() => {
     const fetches = FORMS.map(form =>
@@ -38,31 +39,44 @@ export default function App() {
     Promise.all(fetches)
       .then(results => {
         // Combine all results into a single array
-        const combined = results.flat()
-        setAllSubmissions(combined)
-      })
-      .catch(err => {
-        console.error("Error fetching submissions:", err)
+        setAllSubmissions(results.flat())
       })
   }, [])
+
+  const filtered = allSubmissions.filter(item => {
+    const allText = Object.values(item.parsed).join(" ").toLowerCase()
+    return allText.includes(search.toLowerCase())
+  })
+
 
   return (
     <div style={{ padding: "24px", fontFamily: "sans-serif" }}>
       <h1>Find Podo</h1>
+
+      <input
+        type="text"
+        placeholder="Search by name, location, or any keyword..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        style={{
+          padding: "10px 12px", width: "100%", maxWidth: "400px",
+          marginBottom: "20px", borderRadius: "6px", border: "1px solid #ccc"
+        }}
+      />
+      <p style={{ color: "#666", margin: "0 0 12px" }}> Showing {filtered.length} of {allSubmissions.length} records</p>
+
       <p style={{ color: "#666" }}>Total records: {allSubmissions.length}</p>
 
-      {allSubmissions.map(item => (
+      {filtered.map(item => (
         <div key={item.id} style={{
-          border: "1px solid #ddd",
-          borderRadius: "8px",
-          padding: "12px",
-          marginBottom: "8px",
+          border: "1px solid #ddd", borderRadius: "8px",
+          padding: "12px", marginBottom: "8px",
         }}>
           <p style={{ fontWeight: "bold", margin: "0 0 4px" }}>
             {item.parsed.fullname || item.parsed.name || "Unknown"}
           </p>
           <p style={{ color: "#666", fontSize: "13px", margin: "0 0 2px" }}>
-            {item.parsed.location || "No location"}
+            📍 {item.parsed.location || "No location"}
           </p>
           <p style={{ color: "#999", fontSize: "12px", margin: 0 }}>
             {item.formLabel} · {item.parsed.timestamp || item.created_at}
